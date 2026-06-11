@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.batterycalc.app.BatteryCalcApp
+import com.batterycalc.app.work.BatteryMonitorWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,7 +22,8 @@ class BootReceiver : BroadcastReceiver() {
 
         scope.launch {
             try {
-                app.repository.reconcileSessions(context)
+                app.repository.syncChargingState(context)
+                BatteryMonitorWorker.scheduleImmediateCheck(context)
             } finally {
                 pendingResult.finish()
             }

@@ -235,7 +235,7 @@ private fun UsageTab(
                     message = if (isCharging) {
                         "Usage tracking starts when you unplug. Your current session will appear in Logs after you plug back in."
                     } else {
-                        "Unplug your phone to start a usage session. If you already unplugged, pull to refresh or reopen the app."
+                        "Unplug your phone to start tracking. BattBuddy logs automatically in the background."
                     }
                 )
             }

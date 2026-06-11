@@ -31,12 +31,15 @@ Plug in  →  [Charging: live]  →  Unplug  →  [Charging: log ✓]
                                (repeat)
 ```
 
-## If Usage tab is empty
+## Background tracking
 
-1. Make sure you **unplugged** (usage only starts on unplug)
-2. Open the app once on battery (recovers missed unplug events)
-3. Settings → BattBuddy → Battery → **Unrestricted**
-4. Do not force-stop the app
+BattBuddy detects plug/unplug automatically via system broadcasts and background checks every ~15 minutes (more often while a session is active). You do **not** need to open the app after unplugging.
+
+## If logs look wrong or missing
+
+1. Settings → BattBuddy → Battery → **Unrestricted**
+2. Do not force-stop the app
+3. Open the app once after install
 
 ## Build & install
 

@@ -15,6 +15,9 @@ interface ChargeSessionDao {
     @Update
     suspend fun update(session: ChargeSession)
 
+    @Query("DELETE FROM charge_sessions WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     @Query("SELECT * FROM charge_sessions WHERE isComplete = 0 ORDER BY plugTime DESC LIMIT 1")
     suspend fun getActiveSession(): ChargeSession?
 

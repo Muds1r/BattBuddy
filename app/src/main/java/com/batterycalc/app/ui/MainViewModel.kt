@@ -68,7 +68,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun refresh() {
         val app = getApplication<Application>()
         viewModelScope.launch {
-            repository.reconcileSessions(app)
+            repository.syncChargingState(app)
             snapshot.update { readSnapshot(app) }
         }
     }

@@ -2,17 +2,21 @@ package com.batterycalc.app.data
 
 import android.content.Context
 import com.batterycalc.app.util.BatteryHelper
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlin.math.abs
 
 /**
- * Charging and usage logs are separate tables with strict lifecycle:
- * - Plug in  → end usage (→ history), start charge
- * - Unplug   → end charge (→ history), start usage
+ * Charging and usage logs are separate:
+ * - Plug in  → end usage (history), start charge
+ * - Unplug   → end charge (history), start usage
+ *
+ * State is tracked in [BatteryStatePrefs] so background checks catch missed broadcasts.
  */
 class SessionRepository(
     private val dischargeDao: DischargeSessionDao,
-    private val chargeDao: ChargeSessionDao
+    private val chargeDao: ChargeSessionDao,
+    private val batteryStatePrefs: BatteryStatePrefs
 ) {
     private var lastPlugEventMs = 0L
     private var lastUnplugEventMs = 0L
@@ -26,45 +30,61 @@ class SessionRepository(
 
     fun observeCompletedCharge(): Flow<List<ChargeSession>> = chargeDao.observeCompletedSessions()
 
+    suspend fun hasActiveSession(): Boolean =
+        chargeDao.getActiveSession() != null || dischargeDao.getActiveSession() != null
+
     suspend fun onPluggedIn(context: Context) {
-        val percent = BatteryHelper.getBatteryPercent(context)
-        if (percent < 0) return
+        val percent = readBatteryPercent(context) ?: return
         val now = System.currentTimeMillis()
         if (!acceptPlugEvent(now)) return
 
         endActiveUsage(now, percent)
         ensureActiveCharge(now, percent)
+        batteryStatePrefs.setWasCharging(true)
     }
 
     suspend fun onUnplugged(context: Context) {
-        val percent = BatteryHelper.getBatteryPercent(context)
-        if (percent < 0) return
+        // Brief delay so battery % can update after cable removal
+        delay(UNPLUG_READ_DELAY_MS)
+        val percent = readBatteryPercent(context) ?: return
         val now = System.currentTimeMillis()
         if (!acceptUnplugEvent(now)) return
 
         endActiveCharge(now, percent)
         startUsageSession(now, percent)
+        batteryStatePrefs.setWasCharging(false)
     }
 
-    suspend fun reconcileSessions(context: Context) {
-        val percent = BatteryHelper.getBatteryPercent(context)
-        if (percent < 0) return
+    /**
+     * Detects charging ↔ battery transitions without opening the app.
+     * Safe to call from UI refresh, boot, and background worker.
+     */
+    suspend fun syncChargingState(context: Context) {
+        val percent = readBatteryPercent(context) ?: return
         val now = System.currentTimeMillis()
+        val charging = BatteryHelper.isCharging(context)
 
-        if (BatteryHelper.isCharging(context)) {
-            endActiveUsage(now, percent)
-            ensureActiveCharge(now, percent)
-        } else {
-            val hadActiveCharge = chargeDao.getActiveSession() != null
-            endActiveCharge(now, percent)
-
-            when {
-                dischargeDao.getActiveSession() != null -> Unit
-                hadActiveCharge -> startUsageSession(now, percent)
-                else -> recoverMissingUsageSession()
-            }
+        if (!batteryStatePrefs.isInitialized()) {
+            batteryStatePrefs.setWasCharging(charging)
+            fixInconsistentSessions(charging, percent, now)
+            return
         }
+
+        val wasCharging = batteryStatePrefs.getWasCharging(charging)
+        if (charging != wasCharging) {
+            if (charging) {
+                onPluggedIn(context)
+            } else {
+                onUnplugged(context)
+            }
+            return
+        }
+
+        fixInconsistentSessions(charging, percent, now)
     }
+
+    /** @deprecated Use [syncChargingState] */
+    suspend fun reconcileSessions(context: Context) = syncChargingState(context)
 
     private fun acceptPlugEvent(now: Long): Boolean {
         if (now - lastPlugEventMs < EVENT_DEBOUNCE_MS) return false
@@ -78,12 +98,33 @@ class SessionRepository(
         return true
     }
 
+    private suspend fun fixInconsistentSessions(charging: Boolean, percent: Int, now: Long) {
+        if (charging) {
+            dischargeDao.getActiveSession()?.let { endActiveUsage(now, percent) }
+            ensureActiveCharge(now, percent)
+        } else {
+            val orphanCharge = chargeDao.getActiveSession()
+            if (orphanCharge != null) {
+                val age = now - orphanCharge.plugTime
+                if (age <= STALE_ORPHAN_MAX_MS) {
+                    endActiveCharge(now, percent)
+                    startUsageSession(now, percent)
+                } else {
+                    chargeDao.deleteById(orphanCharge.id)
+                    if (dischargeDao.getActiveSession() == null) {
+                        startUsageSession(now, percent)
+                    }
+                }
+            } else if (dischargeDao.getActiveSession() == null) {
+                recoverMissingUsageSession()
+            }
+        }
+    }
+
     private suspend fun ensureActiveCharge(now: Long, percent: Int) {
         val active = chargeDao.getActiveSession()
         when {
-            active == null -> {
-                chargeDao.insert(ChargeSession(plugTime = now, plugPercent = percent))
-            }
+            active == null -> chargeDao.insert(ChargeSession(plugTime = now, plugPercent = percent))
             isSameChargeCycle(active, now, percent) -> Unit
             else -> {
                 endActiveCharge(now, percent)
@@ -148,9 +189,16 @@ class SessionRepository(
         )
     }
 
+    private suspend fun readBatteryPercent(context: Context): Int? {
+        val percent = BatteryHelper.getBatteryPercent(context)
+        return percent.takeIf { it >= 0 }
+    }
+
     companion object {
         private const val EVENT_DEBOUNCE_MS = 2_000L
+        private const val UNPLUG_READ_DELAY_MS = 800L
         private const val SAME_CYCLE_WINDOW_MS = 60_000L
+        private const val STALE_ORPHAN_MAX_MS = 6 * 60 * 60 * 1000L
         private const val RECOVERY_MAX_AGE_MS = 48 * 60 * 60 * 1000L
     }
 }
