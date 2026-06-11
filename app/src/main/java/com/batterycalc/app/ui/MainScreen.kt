@@ -283,10 +283,10 @@ private fun EmptyState(title: String, message: String) {
 private fun LiveChargeCard(session: ChargeSessionUiModel) {
     SessionHeroCard(
         label = "Since plugged in",
-        mainValue = "+${session.percentGained}%",
-        mainSubtitle = "charged",
-        rateValue = session.chargePerHourLabel,
-        rateSubtitle = "per hour",
+        mainValue = session.chargePerHourLabel,
+        mainSubtitle = "per hour",
+        secondaryValue = "+${session.percentGained}%",
+        secondarySubtitle = "total charged",
         stats = listOf(
             Triple("Plugged in", "${session.plugPercent}%", session.plugTimeLabel),
             Triple("Now", "${session.endPercent}%", session.endTimeLabel),
@@ -299,10 +299,10 @@ private fun LiveChargeCard(session: ChargeSessionUiModel) {
 private fun LiveUsageCard(session: UsageSessionUiModel) {
     SessionHeroCard(
         label = "Since unplugged",
-        mainValue = "${session.percentDrop}%",
-        mainSubtitle = "dropped",
-        rateValue = session.drainPerHourLabel,
-        rateSubtitle = "per hour",
+        mainValue = session.drainPerHourLabel,
+        mainSubtitle = "per hour",
+        secondaryValue = "${session.percentDrop}%",
+        secondarySubtitle = "total drained",
         stats = listOf(
             Triple("Unplugged", "${session.unplugPercent}%", session.unplugTimeLabel),
             Triple("Now", "${session.endPercent}%", session.endTimeLabel),
@@ -316,8 +316,8 @@ private fun SessionHeroCard(
     label: String,
     mainValue: String,
     mainSubtitle: String,
-    rateValue: String,
-    rateSubtitle: String,
+    secondaryValue: String,
+    secondarySubtitle: String,
     stats: List<Triple<String, String, String?>>
 ) {
     Column(
@@ -352,9 +352,9 @@ private fun SessionHeroCard(
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(text = rateValue, style = MaterialTheme.typography.titleMedium)
+                Text(text = secondaryValue, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text = rateSubtitle,
+                    text = secondarySubtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -394,8 +394,8 @@ private fun StatCell(label: String, value: String, sub: String?) {
 @Composable
 private fun ChargeHistoryRow(session: ChargeSessionUiModel) {
     HistoryRow(
-        headline = "+${session.percentGained}% charged",
-        rate = session.chargePerHourLabel,
+        headline = session.chargePerHourLabel,
+        rate = "+${session.percentGained}% charged",
         range = "${session.plugPercent}% → ${session.endPercent}%",
         duration = session.durationLabel,
         times = "${session.plugTimeLabel}  ·  ${session.endTimeLabel}"
@@ -405,8 +405,8 @@ private fun ChargeHistoryRow(session: ChargeSessionUiModel) {
 @Composable
 private fun UsageHistoryRow(session: UsageSessionUiModel) {
     HistoryRow(
-        headline = "${session.percentDrop}% drop",
-        rate = session.drainPerHourLabel,
+        headline = session.drainPerHourLabel,
+        rate = "${session.percentDrop}% drained",
         range = "${session.unplugPercent}% → ${session.endPercent}%",
         duration = session.durationLabel,
         times = "${session.unplugTimeLabel}  ·  ${session.endTimeLabel}"
@@ -439,7 +439,8 @@ private fun HistoryRow(
             Text(
                 text = rate,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End
             )
         }
         Row(
