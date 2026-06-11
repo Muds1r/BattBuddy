@@ -23,4 +23,7 @@ interface DischargeSessionDao {
 
     @Query("SELECT * FROM discharge_sessions WHERE isComplete = 1 ORDER BY unplugTime DESC")
     fun observeCompletedSessions(): Flow<List<DischargeSession>>
+
+    @Query("SELECT COUNT(*) FROM discharge_sessions WHERE ABS(unplugTime - :time) < 120000")
+    suspend fun hasSessionNearUnplug(time: Long): Int
 }

@@ -21,7 +21,7 @@ class BootReceiver : BroadcastReceiver() {
 
         scope.launch {
             try {
-                app.repository.syncChargingState(context)
+                app.repository.reconcileSessions(context)
             } finally {
                 pendingResult.finish()
             }

@@ -21,6 +21,9 @@ interface ChargeSessionDao {
     @Query("SELECT * FROM charge_sessions WHERE isComplete = 0 ORDER BY plugTime DESC LIMIT 1")
     fun observeActiveSession(): Flow<ChargeSession?>
 
-    @Query("SELECT * FROM charge_sessions WHERE isComplete = 1 ORDER BY plugTime DESC")
+    @Query("SELECT * FROM charge_sessions WHERE isComplete = 1 ORDER BY unplugTime DESC")
     fun observeCompletedSessions(): Flow<List<ChargeSession>>
+
+    @Query("SELECT * FROM charge_sessions WHERE isComplete = 1 ORDER BY unplugTime DESC LIMIT 1")
+    suspend fun getLatestCompleted(): ChargeSession?
 }

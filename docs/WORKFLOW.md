@@ -1,41 +1,42 @@
 # BattBuddy — App Workflow
 
-## Two features, two tabs
+## Separate logs (important)
 
-### Charging tab
-Tracks each time the phone is plugged in.
+| Tab | Table | Starts when | Ends when | Saved to history when |
+|---|---|---|---|---|
+| **Charging** | `charge_sessions` | Plug in | Unplug | Unplug |
+| **Usage** | `discharge_sessions` | Unplug | Plug in | Plug in |
 
-| Event | What gets saved |
-|---|---|
-| **Plug in** | time + battery % |
-| **Unplug** | time + battery % |
-| **Calculated** | duration, total % gained, avg %/hr |
+These are **two different logs**. Charging data never appears in Usage and vice versa.
 
-Open the app while charging to see live stats before you unplug.
+## Charging tab
 
-### Usage tab
-Tracks each time the phone is on battery.
+1. **Plug in** → new charging session (time + %)
+2. **While charging** → open app for live stats
+3. **Unplug** → session saved to Charging **Logs** (duration, % gained, %/hr)
 
-| Event | What gets saved |
-|---|---|
-| **Unplug** | time + battery % |
-| **Plug in** | time + battery % |
-| **Calculated** | duration, total % dropped, avg %/hr |
+## Usage tab
 
-Open the app anytime while on battery to see live drain since last unplug.
+1. **Unplug** → new usage session (time + %)
+2. **While on battery** → open app for live drain stats
+3. **Plug in** → session saved to Usage **Logs** (duration, % dropped, %/hr)
 
-## The cycle
+## Full cycle
 
 ```
-Plug in ──► [Charging tab: live + log] ──► Unplug ──► [Usage tab: live + log] ──► Plug in ──► ...
+Plug in  →  [Charging: live]  →  Unplug  →  [Charging: log ✓]
+                                      ↓
+                               [Usage: live]  →  Plug in  →  [Usage: log ✓]
+                                      ↓
+                               (repeat)
 ```
 
-## Example
+## If Usage tab is empty
 
-1. Unplug at **5:00 PM** at **80%** → usage session starts
-2. Open app at **4:00 AM** at **62%** → shows **18% drop**, duration, avg %/hr (live)
-3. Plug in at **7:00 AM** at **60%** → usage session saved to logs; charging session starts
-4. Unplug at **9:00 AM** at **85%** → charging session saved (+25%, 2h); new usage session starts
+1. Make sure you **unplugged** (usage only starts on unplug)
+2. Open the app once on battery (recovers missed unplug events)
+3. Settings → BattBuddy → Battery → **Unrestricted**
+4. Do not force-stop the app
 
 ## Build & install
 
@@ -43,13 +44,3 @@ Plug in ──► [Charging tab: live + log] ──► Unplug ──► [Usage t
 ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
-
-## Phone settings
-
-- Open app once after install
-- Battery → **Unrestricted**
-- Don't force-stop the app
-
-## Background
-
-The app does not need to stay open. Plug/unplug listeners run in the background. Live % updates only appear when you open the app.

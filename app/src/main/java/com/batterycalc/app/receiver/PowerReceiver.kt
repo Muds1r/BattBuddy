@@ -14,22 +14,30 @@ class PowerReceiver : BroadcastReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action == null) return
-
-        val app = context.applicationContext as BatteryCalcApp
-        val repository = app.repository
-
+        val action = intent?.action ?: return
+        val repository = (context.applicationContext as BatteryCalcApp).repository
         val pendingResult = goAsync()
 
         scope.launch {
             try {
-                when (intent.action) {
-                    Intent.ACTION_POWER_DISCONNECTED -> repository.onUnplugged(context)
-                    Intent.ACTION_POWER_CONNECTED -> repository.onPluggedIn(context)
+                when (action) {
+                    in PLUG_ACTIONS -> repository.onPluggedIn(context)
+                    in UNPLUG_ACTIONS -> repository.onUnplugged(context)
                 }
             } finally {
                 pendingResult.finish()
             }
         }
+    }
+
+    companion object {
+        private val PLUG_ACTIONS = setOf(
+            Intent.ACTION_POWER_CONNECTED,
+            "android.intent.action.POWER_CONNECTED"
+        )
+        private val UNPLUG_ACTIONS = setOf(
+            Intent.ACTION_POWER_DISCONNECTED,
+            "android.intent.action.POWER_DISCONNECTED"
+        )
     }
 }

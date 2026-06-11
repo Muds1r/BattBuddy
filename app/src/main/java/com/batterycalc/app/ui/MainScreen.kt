@@ -7,10 +7,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -18,7 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.BatteryStd
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
+import com.batterycalc.app.util.BatteryInfo
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,7 +55,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private enum class AppTab(val label: String) {
     Charging("Charging"),
-    Usage("Usage")
+    Usage("Usage"),
+    Info("Info")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,6 +67,7 @@ fun MainScreen(viewModel: MainViewModel) {
     val activeUsage by viewModel.activeUsage.collectAsStateWithLifecycle()
     val usageHistory by viewModel.usageHistory.collectAsStateWithLifecycle()
     val isCharging by viewModel.isCharging.collectAsStateWithLifecycle()
+    val batteryInfo by viewModel.batteryInfo.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     var selectedTab by remember { mutableIntStateOf(if (isCharging) 0 else 1) }
 
@@ -73,8 +81,11 @@ fun MainScreen(viewModel: MainViewModel) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Column {
+            Column(
+                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars)
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -123,6 +134,7 @@ fun MainScreen(viewModel: MainViewModel) {
                                     imageVector = when (tab) {
                                         AppTab.Charging -> Icons.Outlined.BatteryChargingFull
                                         AppTab.Usage -> Icons.Outlined.BatteryStd
+                                        AppTab.Info -> Icons.Outlined.Info
                                     },
                                     contentDescription = null
                                 )
@@ -139,6 +151,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(vertical = 12.dp),
                 textAlign = TextAlign.Center
             )
@@ -155,6 +168,11 @@ fun MainScreen(viewModel: MainViewModel) {
                 modifier = Modifier.padding(padding),
                 activeSession = activeUsage,
                 history = usageHistory,
+                isCharging = isCharging
+            )
+            AppTab.Info -> InfoTab(
+                modifier = Modifier.padding(padding),
+                info = batteryInfo,
                 isCharging = isCharging
             )
         }
@@ -215,9 +233,9 @@ private fun UsageTab(
                 EmptyState(
                     title = if (isCharging) "No active usage" else "No active session",
                     message = if (isCharging) {
-                        "Unplug to start tracking battery drain."
+                        "Usage tracking starts when you unplug. Your current session will appear in Logs after you plug back in."
                     } else {
-                        "Unplug your phone to start tracking drain."
+                        "Unplug your phone to start a usage session. If you already unplugged, pull to refresh or reopen the app."
                     }
                 )
             }
@@ -444,5 +462,106 @@ private fun HistoryRow(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun InfoTab(
+    modifier: Modifier = Modifier,
+    info: BatteryInfo,
+    isCharging: Boolean
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "${info.levelPercent}%",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Light
+                )
+                Text(
+                    text = if (isCharging) "Currently charging" else "On battery",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        item { SectionLabel("Live readings") }
+        item {
+            InfoCard(
+                rows = listOf(
+                    "Voltage" to info.voltageLabel,
+                    "Current" to info.currentLabel,
+                    "Power" to info.powerLabel,
+                    "Temperature" to info.temperatureLabel
+                )
+            )
+        }
+
+        item { SectionLabel("Battery health") }
+        item {
+            InfoCard(
+                rows = listOf(
+                    "Health status" to info.healthStatus,
+                    "Capacity" to info.capacityLabel,
+                    "Technology" to (info.technology ?: "—"),
+                    "Cycle count" to info.cycleCountLabel
+                )
+            )
+        }
+
+        item {
+            Text(
+                text = "Readings update when you open or refresh the app. Cycle count is not available to third-party apps on Pixel — check Settings → Battery.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun InfoCard(rows: List<Pair<String, String>>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        rows.forEachIndexed { index, (label, value) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(text = value, style = MaterialTheme.typography.titleMedium)
+            }
+            if (index < rows.lastIndex) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            }
+        }
     }
 }

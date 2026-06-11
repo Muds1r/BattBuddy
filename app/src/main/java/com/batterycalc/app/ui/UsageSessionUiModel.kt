@@ -2,6 +2,7 @@ package com.batterycalc.app.ui
 
 import com.batterycalc.app.data.DischargeSession
 import com.batterycalc.app.util.BatteryHelper
+import com.batterycalc.app.util.SessionMetrics
 import com.batterycalc.app.util.TimeFormat
 
 data class UsageSessionUiModel(
@@ -24,8 +25,8 @@ data class UsageSessionUiModel(
         fun fromCompleted(session: DischargeSession): UsageSessionUiModel? {
             val plugTime = session.plugTime ?: return null
             val plugPercent = session.plugPercent ?: return null
-            val durationMs = plugTime - session.unplugTime
-            val percentDrop = session.unplugPercent - plugPercent
+            val durationMs = SessionMetrics.durationMs(session.unplugTime, plugTime)
+            val percentDrop = SessionMetrics.percentDropped(session.unplugPercent, plugPercent)
 
             return UsageSessionUiModel(
                 id = session.id,
@@ -36,13 +37,13 @@ data class UsageSessionUiModel(
                 isLive = false,
                 durationMs = durationMs,
                 percentDrop = percentDrop,
-                drainPerHour = BatteryHelper.drainPerHour(percentDrop, durationMs)
+                drainPerHour = SessionMetrics.perHour(percentDrop, durationMs)
             )
         }
 
         fun fromActive(session: DischargeSession, currentPercent: Int, now: Long): UsageSessionUiModel {
-            val durationMs = now - session.unplugTime
-            val percentDrop = session.unplugPercent - currentPercent
+            val durationMs = SessionMetrics.durationMs(session.unplugTime, now)
+            val percentDrop = SessionMetrics.percentDropped(session.unplugPercent, currentPercent)
 
             return UsageSessionUiModel(
                 id = session.id,
@@ -53,7 +54,7 @@ data class UsageSessionUiModel(
                 isLive = true,
                 durationMs = durationMs,
                 percentDrop = percentDrop,
-                drainPerHour = BatteryHelper.drainPerHour(percentDrop, durationMs)
+                drainPerHour = SessionMetrics.perHour(percentDrop, durationMs)
             )
         }
     }
