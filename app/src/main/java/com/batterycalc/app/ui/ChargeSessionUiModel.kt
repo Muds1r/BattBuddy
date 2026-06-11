@@ -19,7 +19,7 @@ data class ChargeSessionUiModel(
     val durationLabel: String get() = BatteryHelper.formatDuration(durationMs)
     val plugTimeLabel: String get() = TimeFormat.format(plugTime)
     val endTimeLabel: String get() = if (isLive) "Now" else TimeFormat.format(endTime)
-    val chargePerHourLabel: String get() = String.format("%.1f%%/hr", chargePerHour)
+    val chargePerHourLabel: String get() = SessionMetrics.formatPerHour(chargePerHour)
 
     companion object {
         fun fromCompleted(session: ChargeSession): ChargeSessionUiModel? {

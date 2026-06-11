@@ -286,7 +286,7 @@ private fun LiveChargeCard(session: ChargeSessionUiModel) {
         mainValue = "+${session.percentGained}%",
         mainSubtitle = "charged",
         rateValue = session.chargePerHourLabel,
-        rateSubtitle = "avg rate",
+        rateSubtitle = "per hour",
         stats = listOf(
             Triple("Plugged in", "${session.plugPercent}%", session.plugTimeLabel),
             Triple("Now", "${session.endPercent}%", session.endTimeLabel),
@@ -302,7 +302,7 @@ private fun LiveUsageCard(session: UsageSessionUiModel) {
         mainValue = "${session.percentDrop}%",
         mainSubtitle = "dropped",
         rateValue = session.drainPerHourLabel,
-        rateSubtitle = "avg drain",
+        rateSubtitle = "per hour",
         stats = listOf(
             Triple("Unplugged", "${session.unplugPercent}%", session.unplugTimeLabel),
             Triple("Now", "${session.endPercent}%", session.endTimeLabel),

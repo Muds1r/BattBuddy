@@ -67,10 +67,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         val app = getApplication<Application>()
-        viewModelScope.launch {
-            repository.syncChargingState(app)
-            snapshot.update { readSnapshot(app) }
-        }
+        snapshot.update { readSnapshot(app) }
     }
 
     private fun readSnapshot(app: Application): BatterySnapshot {

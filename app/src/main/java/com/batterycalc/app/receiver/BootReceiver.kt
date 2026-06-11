@@ -22,7 +22,7 @@ class BootReceiver : BroadcastReceiver() {
 
         scope.launch {
             try {
-                app.repository.syncChargingState(context)
+                app.repository.checkChargingTransition(context)
                 BatteryMonitorWorker.scheduleImmediateCheck(context)
             } finally {
                 pendingResult.finish()

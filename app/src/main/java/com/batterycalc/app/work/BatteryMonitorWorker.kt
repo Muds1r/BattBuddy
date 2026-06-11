@@ -18,7 +18,7 @@ class BatteryMonitorWorker(
 
     override suspend fun doWork(): Result {
         val app = applicationContext as BatteryCalcApp
-        app.repository.syncChargingState(applicationContext)
+        app.repository.checkChargingTransition(applicationContext)
 
         if (app.repository.hasActiveSession()) {
             scheduleSoonCheck(applicationContext)

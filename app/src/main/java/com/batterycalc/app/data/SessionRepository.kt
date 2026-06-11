@@ -7,11 +7,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlin.math.abs
 
 /**
- * Charging and usage logs are separate:
- * - Plug in  → end usage (history), start charge
- * - Unplug   → end charge (history), start usage
- *
- * State is tracked in [BatteryStatePrefs] so background checks catch missed broadcasts.
+ * Logs are created only on plug/unplug events (broadcast or detected state change).
+ * Opening the app never creates sessions.
  */
 class SessionRepository(
     private val dischargeDao: DischargeSessionDao,
@@ -44,7 +41,6 @@ class SessionRepository(
     }
 
     suspend fun onUnplugged(context: Context) {
-        // Brief delay so battery % can update after cable removal
         delay(UNPLUG_READ_DELAY_MS)
         val percent = readBatteryPercent(context) ?: return
         val now = System.currentTimeMillis()
@@ -56,35 +52,26 @@ class SessionRepository(
     }
 
     /**
-     * Detects charging ↔ battery transitions without opening the app.
-     * Safe to call from UI refresh, boot, and background worker.
+     * Background/boot only: detect charging state change vs last known state.
+     * Does not create logs unless state actually changed.
      */
-    suspend fun syncChargingState(context: Context) {
-        val percent = readBatteryPercent(context) ?: return
-        val now = System.currentTimeMillis()
+    suspend fun checkChargingTransition(context: Context) {
         val charging = BatteryHelper.isCharging(context)
 
         if (!batteryStatePrefs.isInitialized()) {
             batteryStatePrefs.setWasCharging(charging)
-            fixInconsistentSessions(charging, percent, now)
             return
         }
 
         val wasCharging = batteryStatePrefs.getWasCharging(charging)
-        if (charging != wasCharging) {
-            if (charging) {
-                onPluggedIn(context)
-            } else {
-                onUnplugged(context)
-            }
-            return
+        if (charging == wasCharging) return
+
+        if (charging) {
+            onPluggedIn(context)
+        } else {
+            onUnplugged(context)
         }
-
-        fixInconsistentSessions(charging, percent, now)
     }
-
-    /** @deprecated Use [syncChargingState] */
-    suspend fun reconcileSessions(context: Context) = syncChargingState(context)
 
     private fun acceptPlugEvent(now: Long): Boolean {
         if (now - lastPlugEventMs < EVENT_DEBOUNCE_MS) return false
@@ -96,29 +83,6 @@ class SessionRepository(
         if (now - lastUnplugEventMs < EVENT_DEBOUNCE_MS) return false
         lastUnplugEventMs = now
         return true
-    }
-
-    private suspend fun fixInconsistentSessions(charging: Boolean, percent: Int, now: Long) {
-        if (charging) {
-            dischargeDao.getActiveSession()?.let { endActiveUsage(now, percent) }
-            ensureActiveCharge(now, percent)
-        } else {
-            val orphanCharge = chargeDao.getActiveSession()
-            if (orphanCharge != null) {
-                val age = now - orphanCharge.plugTime
-                if (age <= STALE_ORPHAN_MAX_MS) {
-                    endActiveCharge(now, percent)
-                    startUsageSession(now, percent)
-                } else {
-                    chargeDao.deleteById(orphanCharge.id)
-                    if (dischargeDao.getActiveSession() == null) {
-                        startUsageSession(now, percent)
-                    }
-                }
-            } else if (dischargeDao.getActiveSession() == null) {
-                recoverMissingUsageSession()
-            }
-        }
     }
 
     private suspend fun ensureActiveCharge(now: Long, percent: Int) {
@@ -173,22 +137,6 @@ class SessionRepository(
         )
     }
 
-    private suspend fun recoverMissingUsageSession() {
-        val lastCharge = chargeDao.getLatestCompleted() ?: return
-        val unplugTime = lastCharge.unplugTime ?: return
-        val unplugPercent = lastCharge.unplugPercent ?: return
-
-        if (dischargeDao.hasSessionNearUnplug(unplugTime) > 0) return
-        if (System.currentTimeMillis() - unplugTime > RECOVERY_MAX_AGE_MS) return
-
-        dischargeDao.insert(
-            DischargeSession(
-                unplugTime = unplugTime,
-                unplugPercent = unplugPercent
-            )
-        )
-    }
-
     private suspend fun readBatteryPercent(context: Context): Int? {
         val percent = BatteryHelper.getBatteryPercent(context)
         return percent.takeIf { it >= 0 }
@@ -198,7 +146,5 @@ class SessionRepository(
         private const val EVENT_DEBOUNCE_MS = 2_000L
         private const val UNPLUG_READ_DELAY_MS = 800L
         private const val SAME_CYCLE_WINDOW_MS = 60_000L
-        private const val STALE_ORPHAN_MAX_MS = 6 * 60 * 60 * 1000L
-        private const val RECOVERY_MAX_AGE_MS = 48 * 60 * 60 * 1000L
     }
 }
