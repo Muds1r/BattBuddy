@@ -1,0 +1,50 @@
+# Built app files
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Gradle
+.gradle/
+build/
+*/build/
+
+# Local machine config (SDK path — do not commit)
+local.properties
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Node (if added later)
+node_modules/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+.navigation/
+captures/
+
+# Kotlin
+.kotlin/
+
+# NDK / native
+.externalNativeBuild/
+.cxx/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Emulator screenshots (local testing only)
+docs/*.png
+
+# Signing keys — never commit
+*.jks
+*.keystore
